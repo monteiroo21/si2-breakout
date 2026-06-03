@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SI2 - Breakout</title>
+    <link rel="stylesheet" href="/framework/nord.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+<body>
+    <div id="game-container" class="stats-panel" style="max-width: 640px; margin: 40px auto; padding: 25px;">
+        <h1 class="game-title" style="font-size: 2.2rem; text-align: center; margin-bottom: 20px; color: var(--nord8);">Breakout</h1>
+        <div id="status-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: 600;">
+            <span>Score: <span id="score" style="color: var(--nord8);">0</span></span>
+            <span>High Score: <span id="high-score" style="color: var(--nord14);">0</span></span>
+            <span>Lives: <span id="lives" style="color: var(--nord11);">3</span></span>
+            <span>Status: <span id="status" class="badge badge-lobby">LOBBY</span></span>
+        </div>
+        <canvas id="game-canvas" class="game-viewport" width="600" height="400" style="display: block; margin: 0 auto 20px;"></canvas>
+        <div id="controls" style="display: flex; gap: 15px; justify-content: center;">
+            <button id="start-btn" class="btn btn-primary" style="padding: 10px 24px;">Start</button>
+            <button id="reset-btn" class="btn btn-danger" style="padding: 10px 24px;">Reset</button>
+        </div>
+    </div>
+    <script type="module" src="script.js"></script>
+</body>
+</html>

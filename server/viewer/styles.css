@@ -1,0 +1,73 @@
+body {
+    background-color: #2e3440; /* Nord0 */
+    color: #eceff4; /* Nord6 */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+#game-container {
+    text-align: center;
+    background: #3b4252; /* Nord1 */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+h1 {
+    color: #88c0d0; /* Nord8 */
+    margin-top: 0;
+}
+
+#status-bar {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    font-weight: bold;
+    background: #434c5e; /* Nord2 */
+    padding: 10px;
+    border-radius: 5px;
+}
+
+#score, #lives, #status, #high-score {
+    color: #ebcb8b; /* Nord13 */
+}
+
+canvas {
+    border: 3px solid #4c566a; /* Nord3 */
+    background-color: #2e3440; /* Nord0 */
+    border-radius: 4px;
+}
+
+#controls {
+    margin-top: 15px;
+}
+
+button {
+    padding: 10px 25px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    background: #5e81ac; /* Nord10 */
+    color: #eceff4; /* Nord6 */
+    border: none;
+    border-radius: 4px;
+    margin: 0 10px;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #81a1c1; /* Nord9 */
+}
+
+button#reset-btn {
+    background: #bf616a; /* Nord11 */
+}
+
+button#reset-btn:hover {
+    background: #d08770; /* Nord12 */
+}

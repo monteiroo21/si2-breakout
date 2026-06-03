@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect x="0" y="0" width="128" height="128" fill="#2E3440" rx="19" />
+  <g transform="scale(1.28)">
+    <!-- Bricks (Rows) -->
+    <!-- Top Row: Yellow -->
+    <rect x="17" y="18" width="15" height="6" fill="#EBCB8B" stroke="#2E3440" stroke-width="1" />
+    <rect x="34" y="18" width="15" height="6" fill="#EBCB8B" stroke="#2E3440" stroke-width="1" />
+    <rect x="51" y="18" width="15" height="6" fill="#EBCB8B" stroke="#2E3440" stroke-width="1" />
+    <rect x="68" y="18" width="15" height="6" fill="#EBCB8B" stroke="#2E3440" stroke-width="1" />
+    
+    <!-- Middle Row: Orange -->
+    <rect x="25.5" y="26" width="15" height="6" fill="#D08770" stroke="#2E3440" stroke-width="1" />
+    <rect x="42.5" y="26" width="15" height="6" fill="#D08770" stroke="#2E3440" stroke-width="1" />
+    <rect x="59.5" y="26" width="15" height="6" fill="#D08770" stroke="#2E3440" stroke-width="1" />
+    
+    <!-- Bottom Row: Red -->
+    <rect x="17" y="34" width="15" height="6" fill="#BF616A" stroke="#2E3440" stroke-width="1" />
+    <rect x="34" y="34" width="15" height="6" fill="#BF616A" stroke="#2E3440" stroke-width="1" />
+    <rect x="51" y="34" width="15" height="6" fill="#BF616A" stroke="#2E3440" stroke-width="1" />
+    <rect x="68" y="34" width="15" height="6" fill="#BF616A" stroke="#2E3440" stroke-width="1" />
+
+    <!-- Ball -->
+    <circle cx="45" cy="62" r="3" fill="#ECEFF4" stroke="#D8DEE9" stroke-width="1" />
+
+    <!-- Paddle -->
+    <rect x="35" y="82" width="30" height="5" fill="#88C0D0" stroke="#5E81AC" stroke-width="1" />
+  </g>
+</svg>
