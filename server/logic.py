@@ -1,3 +1,8 @@
+__author__ = "Mário Antunes"
+__version__ = "1.1.0"
+__email__ = "mario.antunes@ua.pt"
+__status__ = "Development"
+
 import math
 import random
 from typing import Dict, List, Any
@@ -29,6 +34,28 @@ class Breakout:
         self.width = width
         self.height = height
         self.high_score = 0
+        
+        self.paddle_width = 80.0
+        self.paddle_height = 10.0
+        self.paddle_y = 380.0
+        self.paddle_x = 0.0
+        
+        self.ball_radius = 8.0
+        self.ball_speed = 300.0
+        self.ball_x = 0.0
+        self.ball_y = 0.0
+        self.ball_vx = 0.0
+        self.ball_vy = 0.0
+        
+        self.lives = 3
+        self.score = 0
+        self.checkpoint_score = 0
+        self.game_over = False
+        
+        self.bricks: List[Brick] = []
+        self.brick_array = np.empty((0, 6), dtype=np.float32)
+        self.bricks_need_respawn = False
+        
         self.reset_game()
 
     def reset_game(self):
@@ -136,19 +163,22 @@ class Breakout:
             if (self.ball_x + self.ball_radius >= p_left and self.ball_x - self.ball_radius <= p_right and
                 self.ball_y + self.ball_radius >= p_top and self.ball_y - self.ball_radius <= p_bottom):
                 
-                # 4.1 Specular reflection: Reverse vy
-                self.ball_vy = -self.ball_vy
+                # 4.1 Region-based bounce angle calculation
+                relative_x = self.ball_x - self.paddle_x
+                if relative_x < self.paddle_width / 3.0:
+                    # Left region: bounce left (angle between -45 and -15 degrees)
+                    angle = random.uniform(-math.pi / 4.0, -math.pi / 12.0)
+                elif relative_x > 2.0 * self.paddle_width / 3.0:
+                    # Right region: bounce right (angle between 15 and 45 degrees)
+                    angle = random.uniform(math.pi / 12.0, math.pi / 4.0)
+                else:
+                    # Center region: bounce nearly straight up (angle between -5 and 5 degrees)
+                    angle = random.uniform(-math.pi / 36.0, math.pi / 36.0)
+
+                # 4.2 Conserve Newtonian energy using absolute ball speed
+                self.ball_vx = self.ball_speed * math.sin(angle)
+                self.ball_vy = -self.ball_speed * math.cos(angle)
                 
-                # 4.2 Horizontal perturbation: add random drift to vx to prevent straight vertical loops
-                perturbation = random.uniform(-35.0, 35.0)
-                self.ball_vx += perturbation
-                
-                # 4.3 Normalize velocity vector to strictly conserve Newtonian energy (speed)
-                speed = math.sqrt(self.ball_vx**2 + self.ball_vy**2)
-                if speed > 0.0:
-                    self.ball_vx = (self.ball_vx / speed) * self.ball_speed
-                    self.ball_vy = (self.ball_vy / speed) * self.ball_speed
-                    
                 # Adjust position to prevent sticky collisions
                 self.ball_y = p_top - self.ball_radius
 
@@ -217,6 +247,12 @@ class Breakout:
                 self.bricks_need_respawn = False
 
     def get_state(self) -> Dict[str, Any]:
+        valid_actions = []
+        if not self.game_over:
+            if self.paddle_x > 0.0:
+                valid_actions.append({"action": "move", "direction": "WEST"})
+            if self.paddle_x < self.width - self.paddle_width:
+                valid_actions.append({"action": "move", "direction": "EAST"})
         return {
             "width": self.width,
             "height": self.height,
@@ -231,5 +267,7 @@ class Breakout:
             "score": self.score,
             "high_score": self.high_score,
             "game_over": self.game_over,
-            "bricks": [b.to_dict() for b in self.bricks if b.active]
+            "bricks": [b.to_dict() for b in self.bricks if b.active],
+            "actions": valid_actions,
+            "valid_actions": valid_actions
         }

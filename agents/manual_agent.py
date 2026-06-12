@@ -1,14 +1,21 @@
+__author__ = "Mário Antunes"
+__version__ = "1.1.0"
+__email__ = "mario.antunes@ua.pt"
+__status__ = "Development"
+
 import asyncio
 import json
 import select
 import sys
 
+termios = None
+tty = None
 try:
     import termios
     import tty
-    HAS_TERMIOS = True
+    has_termios = True
 except ImportError:
-    HAS_TERMIOS = False
+    has_termios = False
 
 try:
     import websockets
@@ -25,7 +32,7 @@ async def receive_loop(websocket):
                 print(f"\n[Handshake Complete] Assigned Breakout Player ID: {data.get('player_id')}")
                 print("Controls: A to move LEFT, D to move RIGHT, Q to quit.")
                 print("="*60)
-            elif data.get("type") == "state":
+            elif data.get("type") in ("state", "update"):
                 score = data.get("score", 0)
                 lives = data.get("lives", 0)
                 high_score = data.get("high_score", 0)
@@ -53,16 +60,18 @@ async def receive_loop(websocket):
         print("\nDisconnected from Breakout Server.")
 
 async def send_loop(websocket):
-    fd = sys.stdin.fileno() if HAS_TERMIOS else None
+    fd = sys.stdin.fileno() if has_termios else None
     old_settings = None
-    if HAS_TERMIOS and fd is not None:
+    if has_termios and fd is not None:
+        assert termios is not None
+        assert tty is not None
         old_settings = termios.tcgetattr(fd)
         tty.setraw(fd)
 
     try:
         while True:
             key = ""
-            if HAS_TERMIOS and fd is not None:
+            if has_termios and fd is not None:
                 rlist, _, _ = select.select([sys.stdin], [], [], 0.05)
                 if rlist:
                     key = sys.stdin.read(1)
@@ -84,7 +93,8 @@ async def send_loop(websocket):
                     await websocket.send(json.dumps({"action": "move", "direction": "EAST"}))
             await asyncio.sleep(0.02)
     finally:
-        if HAS_TERMIOS and fd is not None and old_settings is not None:
+        if has_termios and fd is not None and old_settings is not None:
+            assert termios is not None
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         print("\nExiting Manual Agent...")
 

@@ -1,3 +1,8 @@
+__author__ = "Mário Antunes"
+__version__ = "1.1.0"
+__email__ = "mario.antunes@ua.pt"
+__status__ = "Development"
+
 import unittest
 import math
 from server.logic import Breakout
@@ -143,6 +148,60 @@ class TestBreakoutLogic(unittest.TestCase):
         self.assertFalse(self.game.bricks_need_respawn)
         for b in self.game.bricks:
             self.assertTrue(b.active)
+
+    def test_paddle_bounce_regions(self):
+        self.game.paddle_x = 100.0
+        self.game.paddle_y = 380.0
+        self.game.paddle_width = 90.0  # clean division by 3: Left 0-30, Center 30-60, Right 60-90
+        self.game.paddle_height = 10.0
+        self.game.ball_speed = 300.0
+
+        # Left region: hit at relative x = 15.0 (ball_x = 115.0)
+        self.game.ball_x = 115.0
+        self.game.ball_y = 373.0
+        self.game.ball_vx = 0.0
+        self.game.ball_vy = 100.0
+        self.game.update(0.05)
+        # vx must be negative (bounces left)
+        self.assertLess(self.game.ball_vx, 0.0)
+        self.assertLess(self.game.ball_vy, 0.0)
+
+        # Right region: hit at relative x = 75.0 (ball_x = 175.0)
+        self.game.paddle_x = 100.0
+        self.game.ball_x = 175.0
+        self.game.ball_y = 373.0
+        self.game.ball_vx = 0.0
+        self.game.ball_vy = 100.0
+        self.game.update(0.05)
+        # vx must be positive (bounces right)
+        self.assertGreater(self.game.ball_vx, 0.0)
+        self.assertLess(self.game.ball_vy, 0.0)
+
+        # Center region: hit at relative x = 45.0 (ball_x = 145.0)
+        self.game.paddle_x = 100.0
+        self.game.ball_x = 145.0
+        self.game.ball_y = 373.0
+        self.game.ball_vx = 0.0
+        self.game.ball_vy = 100.0
+        self.game.update(0.05)
+        # vx must be small (bounce nearly straight up, |angle| <= 5 deg -> |vx| <= 300 * sin(5 deg) ~ 26.1)
+        self.assertLessEqual(abs(self.game.ball_vx), 30.0)
+        self.assertLess(self.game.ball_vy, 0.0)
+
+    def test_state_includes_valid_actions(self):
+        state = self.game.get_state()
+        self.assertIn("actions", state)
+        self.assertIn("valid_actions", state)
+        self.assertEqual(len(state["actions"]), 2)
+        self.assertEqual(state["actions"][0], {"action": "move", "direction": "WEST"})
+        self.assertEqual(state["actions"][1], {"action": "move", "direction": "EAST"})
+
+        # If game_over is True, actions must be empty
+        self.game.game_over = True
+        state_over = self.game.get_state()
+        self.assertEqual(len(state_over["actions"]), 0)
+        self.assertEqual(len(state_over["valid_actions"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

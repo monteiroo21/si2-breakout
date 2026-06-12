@@ -1,2 +1,2 @@
-ai-game-framework>=1.0.0
+ai-game-framework>=1.1.0
 numpy>=2.4.6

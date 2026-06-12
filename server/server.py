@@ -1,3 +1,8 @@
+__author__ = "Mário Antunes"
+__version__ = "1.1.0"
+__email__ = "mario.antunes@ua.pt"
+__status__ = "Development"
+
 import logging
 from typing import Dict, Any, Optional
 
