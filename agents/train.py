@@ -3,7 +3,7 @@ import os
 from typing import Any, Dict
 
 from stable_baselines3 import DQN, PPO
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import BaseCallback, CallbackList, EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecEnv, VecFrameStack
 
@@ -11,6 +11,14 @@ from agents.environment import BreakoutEnv
 
 MODELS_DIR = "models"
 TB_DIR = "runs"
+
+class GameScoreCallback(BaseCallback):
+    def _on_step(self) -> bool:
+        for info in self.locals.get("infos", []):
+            if "episode_peak_score" in info:
+                self.logger.record_mean("game/peak_score", float(info["episode_peak_score"]))
+                self.logger.record_mean("game/boards_cleared", float(info["boards_cleared"]))
+        return True
 
 
 def make_stacked_env(
@@ -21,7 +29,6 @@ def make_stacked_env(
 
 
 def build_model(algo: str, venv: VecEnv, seed: int, learning_starts: int):
-    """Create a DQN or PPO model with reasonable defaults for this task."""
     common = dict(
         policy="MlpPolicy",
         env=venv,
@@ -33,7 +40,7 @@ def build_model(algo: str, venv: VecEnv, seed: int, learning_starts: int):
     )
     if algo == "dqn":
         return DQN(
-            learning_rate=1e-3,
+            learning_rate=2.5e-4,
             buffer_size=100_000,
             learning_starts=learning_starts,
             batch_size=64,
@@ -84,10 +91,11 @@ def main() -> None:
     )
 
     model = build_model(args.algo, train_env, args.seed, args.learning_starts)
+    callbacks = CallbackList([eval_cb, GameScoreCallback()])
 
     print(f"Training {args.algo.upper()} for {args.timesteps} steps "
           f"(n_stack={args.n_stack}, n_envs={args.n_envs})...")
-    model.learn(total_timesteps=args.timesteps, callback=eval_cb, tb_log_name=run_name)
+    model.learn(total_timesteps=args.timesteps, callback=callbacks, tb_log_name=run_name)
 
     final_path = os.path.join(MODELS_DIR, f"{run_name}_final")
     model.save(final_path)

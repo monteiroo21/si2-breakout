@@ -62,6 +62,8 @@ class BreakoutEnv(gym.Env):
         self._steps = 0
         self._prev_active = NUM_BRICKS
         self._prev_lives = self.game.lives
+        self._episode_peak_score = 0
+        self._episode_clears = 0
 
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict[str, Any]]:
         super().reset(seed=seed)
@@ -70,6 +72,8 @@ class BreakoutEnv(gym.Env):
 
         self.game.reset_game()
         self._steps = 0
+        self._episode_peak_score = 0
+        self._episode_clears = 0
 
         state = self.game.get_state()
         self._prev_active = len(state["bricks"])
@@ -113,10 +117,18 @@ class BreakoutEnv(gym.Env):
 
         reward = self.calculate_reward(state)
 
+        # Track the REAL game score (not the shaped reward) for logging/visibility.
+        self._episode_peak_score = max(self._episode_peak_score, state["score"])
+        if active == 0 and self._prev_active > 0:
+            self._episode_clears += 1
+
         self._prev_active = active
         self._prev_lives = lives
 
         terminated = bool(state["game_over"])
         truncated = self._steps >= self.max_steps
         info = {"score": state["score"], "lives": lives, "active_bricks": active}
+        if terminated or truncated:
+            info["episode_peak_score"] = self._episode_peak_score
+            info["boards_cleared"] = self._episode_clears
         return obs, float(reward), terminated, truncated, info
