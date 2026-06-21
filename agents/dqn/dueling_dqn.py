@@ -22,9 +22,10 @@ TRAIN_EVAL_EPISODES = 5
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DuelingQNetwork(nn.Module):
-    def __init__(self, in_dim: int, n_actions: int, net_arch: Tuple[int, ...] = NET_ARCH) -> None:
+    def __init__(self, in_dim: int, n_actions: int) -> None:
         super().__init__()
-        feat_dim, head_dim = net_arch[0], net_arch[-1]
+        self.n_actions = n_actions
+        feat_dim, head_dim = 256, 256
         
         self.feature = nn.Sequential(
             nn.Linear(in_dim, feat_dim), 
@@ -48,6 +49,13 @@ class DuelingQNetwork(nn.Module):
         value = self.value(f)
         advantage = self.advantage(f)
         return value + advantage - advantage.mean(dim=1, keepdim=True)
+
+    def act(self, stacked: np.ndarray, epsilon: float) -> int:
+        if random.random() < epsilon:
+            return random.randrange(self.n_actions)
+        with torch.no_grad():
+            t = torch.as_tensor(stacked, dtype=torch.float32, device=device).unsqueeze(0)
+            return int(self.forward(t).argmax(dim=1).item())
 
 class ReplayBuffer:
     def __init__(self, capacity: int) -> None:
@@ -76,14 +84,6 @@ def new_stack(n_stack: int) -> deque:
 def stack_obs(frames: deque, obs: np.ndarray) -> np.ndarray:
     frames.append(obs)
     return np.concatenate(list(frames)).astype(np.float32)
-
-def select_action(net: nn.Module, stacked: np.ndarray, epsilon: float, n_actions: int) -> int:
-    if random.random() < epsilon:
-        return random.randrange(n_actions)
-    with torch.no_grad():
-        t = torch.as_tensor(stacked, dtype=torch.float32, device=device).unsqueeze(0)
-        return int(net(t).argmax(dim=1).item())
-
 
 def linear_epsilon(step: int, total: int, frac: float = 0.2, start: float = 1.0, end: float = 0.05) -> float:
     progress = step / max(int(frac * total), 1)
@@ -148,14 +148,14 @@ def save_checkpoint(net, n_stack, n_actions, path) -> None:
     torch.save({
         "state_dict": net.state_dict(),
         "config": {"dueling": True, "n_stack": int(n_stack), "obs_dim": int(OBS_DIM),
-                   "n_actions": int(n_actions), "net_arch": list(NET_ARCH)},
+                   "n_actions": int(n_actions)},
     }, path)
 
 
 def load_model(path):
     ckpt = torch.load(path, map_location=device, weights_only=False)
     cfg = ckpt["config"]
-    net = DuelingQNetwork(cfg["obs_dim"] * cfg["n_stack"], cfg["n_actions"], tuple(cfg["net_arch"])).to(device)
+    net = DuelingQNetwork(cfg["obs_dim"] * cfg["n_stack"], cfg["n_actions"]).to(device)
     net.load_state_dict(ckpt["state_dict"])
     net.eval()
     return net, cfg
@@ -192,7 +192,7 @@ def train(args) -> None:
 
     for step in range(1, args.timesteps + 1):
         epsilon = linear_epsilon(step, args.timesteps)
-        action = select_action(online, stacked, epsilon, n_actions)
+        action = online.act(stacked, epsilon)
         next_obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
         next_stacked = stack_obs(frames, next_obs)

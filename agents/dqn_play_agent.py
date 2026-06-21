@@ -13,27 +13,28 @@ from agents.environment import ACTIONS, OBS_DIM, build_observation
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 class QNetwork(nn.Module):
-    def __init__(self, in_dim: int, n_actions: int, net_arch: Tuple[int, ...]) -> None:
+    def __init__(self, in_dim: int, n_actions: int) -> None:
         super().__init__()
-        layers: List[nn.Module] = []
-        last = in_dim
-        for hidden in net_arch:
-            layers += [nn.Linear(last, hidden), nn.ReLU()]
-            last = hidden
-        layers.append(nn.Linear(last, n_actions))
-        self.net = nn.Sequential(*layers)
+        self.n_actions = n_actions
+        self.layers = nn.Sequential(
+            nn.Linear(in_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, n_actions),
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
+        return self.layers(x)
 
 
 class DuelingQNetwork(nn.Module):
-    def __init__(self, in_dim: int, n_actions: int, net_arch: Tuple[int, ...]) -> None:
+    def __init__(self, in_dim: int, n_actions: int) -> None:
         super().__init__()
-        feat_dim, head_dim = net_arch[0], net_arch[-1]
-        
+        self.n_actions = n_actions
+        feat_dim, head_dim = 256, 256
+
         self.feature = nn.Sequential(
             nn.Linear(in_dim, feat_dim), 
             nn.ReLU()
@@ -61,7 +62,7 @@ def load_model(path):
     ckpt = torch.load(path, map_location=device, weights_only=False)
     cfg = ckpt["config"]
     cls = DuelingQNetwork if cfg["dueling"] else QNetwork
-    net = cls(cfg["obs_dim"] * cfg["n_stack"], cfg["n_actions"], tuple(cfg["net_arch"])).to(device)
+    net = cls(cfg["obs_dim"] * cfg["n_stack"], cfg["n_actions"]).to(device)
     net.load_state_dict(ckpt["state_dict"])
     net.eval()
     return net, cfg
