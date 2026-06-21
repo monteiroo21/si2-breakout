@@ -20,16 +20,19 @@ time. Each training task = a ~1M-step run + a 30-episode greedy eval.
 
 ## Prerequisites
 - [x] `uv add sb3-contrib`; verify `from sb3_contrib import RecurrentPPO`
-- [ ] Extend `train.py` flags: `--tag`, `--ent-coef`, `--lr-schedule {const,linear}`,
-  `--net-arch`, `--align-coef`, and DQN `--double --dueling --per --n-step`
+- [ ] Add `train.py` flags needed now: `--tag` (output folder → no overwrite) and
+  `--ent-coef` (Phase 1 PPO tuning).
 - [ ] Reuse existing `make_stacked_env`, `GameScoreCallback`, `EvalCallback`, `CallbackList`
 
 ## Phase 1 — PPO quick tuning (cheap, high-ROI)
-- [ ] Run PPO `--ent-coef 0.01 --lr-schedule linear --n-envs 16 --tag ppo_tuned`
+- [ ] Run PPO `--ent-coef 0.01 --tag ppo_tuned`
       (fixes the `ent_coef=0` premature-convergence plateau)
 - [ ] Eval `ppo_tuned` vs PPO baseline; keep if better
 
-## Phase 2 — Advanced DQN (hand-implemented) → new file `agents/dqn_variants.py`
+## Phase 2 — Advanced DQN (hand-implemented) → separate file `agents/dqn_variants.py`
+- [ ] Make `agents/dqn_variants.py` a SELF-CONTAINED training script: its own `main()`
+      + flags `--double --dueling --per --n-step --tag`, reusing `make_stacked_env`,
+      `GameScoreCallback`, `EvalCallback` from train.py. Keeps train.py free of DQN-variant code.
 - [ ] **2a. Double DQN** — subclass SB3 `DQN`; in the loss, select next action with
       online `q_net`, evaluate with `q_net_target` (~15-line override). Run + eval.
 - [ ] **2b. Dueling network** — custom Q-net: shared trunk → V(s) + A(s,a),
@@ -69,8 +72,8 @@ time. Each training task = a ~1M-step run + a 30-episode greedy eval.
       + ablations, TB curves, comparison table, DQN-vs-PPO discussion
 
 ## Files this will touch
-- [ ] **Create** `agents/dqn_variants.py` (Double, Dueling, PER)
-- [ ] **Modify** `agents/train.py` (flags, algo map, lr schedule)
+- [ ] **Create** `agents/dqn_variants.py` (Double, Dueling, PER + its own training `main()`)
+- [ ] **Modify** `agents/train.py` (general flags `--tag/--ent-coef/--lr-schedule`, lr schedule, algo map for recurrentppo/a2c)
 - [ ] **Modify** `agents/environment.py` (`build_observation` 4a; `calculate_reward` 4b/4c — all flag-gated)
 - [ ] **Modify** `agents/rl_agent.py` & `agents/evaluate.py` (extend `ALGOS`; RecurrentPPO state)
 - [ ] **Modify** `pyproject.toml` (`sb3-contrib`)
