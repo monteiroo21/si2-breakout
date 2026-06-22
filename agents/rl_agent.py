@@ -5,13 +5,12 @@ from collections import deque
 from typing import Any, Dict, Optional
 
 import numpy as np
-from stable_baselines3 import DQN, PPO
-from sb3_contrib import RecurrentPPO
+from stable_baselines3 import A2C, DQN, PPO
 
 from agents.base_agent import BaseAgent
 from agents.environment import ACTIONS, OBS_DIM, build_observation
 
-ALGOS = {"dqn": DQN, "ppo": PPO, "recurrentppo": RecurrentPPO}
+ALGOS = {"dqn": DQN, "ppo": PPO, "a2c": A2C}
 
 
 class RLAgent(BaseAgent):
@@ -36,8 +35,6 @@ class RLAgent(BaseAgent):
             (np.zeros(OBS_DIM, dtype=np.float32) for _ in range(self.n_stack)),
             maxlen=self.n_stack,
         )
-        self.lstm_states = None
-        self.episode_start = True 
 
     async def deliberate(self) -> Optional[Dict[str, Any]]:
         state = self.current_state
@@ -49,13 +46,7 @@ class RLAgent(BaseAgent):
         self.frames.append(build_observation(state))
         obs = np.concatenate(list(self.frames)).astype(np.float32)
 
-        action, self.lstm_states = self.model.predict(
-            obs,
-            state=self.lstm_states,
-            episode_start=np.array([self.episode_start]),
-            deterministic=self.deterministic,
-        )
-        self.episode_start = False
+        action, _ = self.model.predict(obs, deterministic=self.deterministic)
         direction = ACTIONS[int(action)]
         if direction is None:
             return None  # STAY
@@ -66,7 +57,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run a trained RL agent on Breakout")
     parser.add_argument("--model", default=None,
                         help="model zip path (default: models/<algo>_breakout/best_model.zip)")
-    parser.add_argument("--algo", choices=["dqn", "ppo", "recurrentppo"], default="dqn")
+    parser.add_argument("--algo", choices=["dqn", "ppo", "a2c"], default="dqn")
     parser.add_argument("--n-stack", type=int, default=4)
     parser.add_argument("--stochastic", action="store_true", help="sample instead of greedy")
     parser.add_argument("--uri", default="ws://localhost:8765/ws")

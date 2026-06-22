@@ -2,8 +2,7 @@ import argparse
 import os
 from typing import Any, Dict
 
-from stable_baselines3 import DQN, PPO
-from sb3_contrib import RecurrentPPO
+from stable_baselines3 import A2C, DQN, PPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecEnv, VecFrameStack
@@ -60,24 +59,22 @@ def build_model(algo: str, venv: VecEnv, seed: int, learning_starts: int):
             ent_coef=0.0,
             **common,
         )
-    if algo == "recurrentppo":
-        return RecurrentPPO(
-            learning_rate=3e-4,
-            n_steps=128,
-            batch_size=128,
-            gae_lambda=0.95,
-            ent_coef=0.0,
-            **{**common, "policy": "MlpLstmPolicy"},
+    if algo == "a2c":
+        return A2C(
+            learning_rate=7e-4,
+            n_steps=5,
+            ent_coef=0.01,
+            **common,
         )
     raise ValueError(f"unknown algo: {algo}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train an RL agent on Breakout")
-    parser.add_argument("--algo", choices=["dqn", "ppo", "recurrentppo"], default="dqn")
+    parser.add_argument("--algo", choices=["dqn", "ppo", "a2c"], default="dqn")
     parser.add_argument("--timesteps", type=int, default=500_000)
     parser.add_argument("--n-stack", type=int, default=4, help="frames to stack")
-    parser.add_argument("--n-envs", type=int, default=1, help="parallel envs (PPO benefits from >1)")
+    parser.add_argument("--n-envs", type=int, default=1, help="parallel envs (PPO/A2C benefit from >1)")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--learning-starts", type=int, default=5_000, help="DQN: steps before learning")
     parser.add_argument("--eval-freq", type=int, default=25_000, help="steps between evaluations")
