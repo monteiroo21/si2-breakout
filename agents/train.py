@@ -3,6 +3,7 @@ import os
 from typing import Any, Dict
 
 from stable_baselines3 import DQN, PPO
+from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecEnv, VecFrameStack
@@ -59,12 +60,21 @@ def build_model(algo: str, venv: VecEnv, seed: int, learning_starts: int):
             ent_coef=0.0,
             **common,
         )
+    if algo == "recurrentppo":
+        return RecurrentPPO(
+            learning_rate=3e-4,
+            n_steps=128,
+            batch_size=128,
+            gae_lambda=0.95,
+            ent_coef=0.0,
+            **{**common, "policy": "MlpLstmPolicy"},
+        )
     raise ValueError(f"unknown algo: {algo}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train an RL agent on Breakout")
-    parser.add_argument("--algo", choices=["dqn", "ppo"], default="dqn")
+    parser.add_argument("--algo", choices=["dqn", "ppo", "recurrentppo"], default="dqn")
     parser.add_argument("--timesteps", type=int, default=500_000)
     parser.add_argument("--n-stack", type=int, default=4, help="frames to stack")
     parser.add_argument("--n-envs", type=int, default=1, help="parallel envs (PPO benefits from >1)")

@@ -2,20 +2,26 @@ import argparse
 
 import numpy as np
 from stable_baselines3 import DQN, PPO
+from sb3_contrib import RecurrentPPO
 
 from agents.train import make_stacked_env
 
-ALGOS = {"dqn": DQN, "ppo": PPO}
+ALGOS = {"dqn": DQN, "ppo": PPO, "recurrentppo": RecurrentPPO}
 CLEAR_SCORE = 148  # 16 bricks * 3 + 100 clear bonus = a full board cleared
 
 
 def run_episodes(model, venv, n_episodes: int):
     peaks, clears, survivals = [], [], []
     obs = venv.reset()
+    lstm_states = None
+    episode_starts = np.ones((1,), dtype=bool)
     cur_peak, cur_steps = 0, 0
     while len(peaks) < n_episodes:
-        action, _ = model.predict(obs, deterministic=True)
+        action, lstm_states = model.predict(
+            obs, state=lstm_states, episode_start=episode_starts, deterministic=True
+        )
         obs, _, dones, infos = venv.step(action)
+        episode_starts = dones
         cur_peak = max(cur_peak, infos[0]["score"])  # peak before any death-rollback
         cur_steps += 1
         if dones[0]:
@@ -28,7 +34,7 @@ def run_episodes(model, venv, n_episodes: int):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Greedy game-score evaluation")
-    parser.add_argument("--algo", choices=["dqn", "ppo"], default="dqn")
+    parser.add_argument("--algo", choices=["dqn", "ppo", "recurrentppo"], default="dqn")
     parser.add_argument("--model", default=None,
                         help="model zip path (default: models/<algo>_breakout/best_model.zip)")
     parser.add_argument("--episodes", type=int, default=30)
