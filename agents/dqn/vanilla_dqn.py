@@ -17,7 +17,7 @@ TB_DIR = "runs"
 CLEAR_SCORE = 148  # a full board cleared (mirror evaluate.py)
 GAMMA = 0.99
 NET_ARCH = (256, 256)
-TRAIN_EVAL_EPISODES = 5  # quick greedy eval during training
+TRAIN_EVAL_EPISODES = 20  # quick greedy eval during training
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

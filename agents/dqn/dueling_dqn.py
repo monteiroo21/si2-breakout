@@ -17,7 +17,7 @@ TB_DIR = "runs"
 CLEAR_SCORE = 148
 GAMMA = 0.99
 NET_ARCH = (256, 256)
-TRAIN_EVAL_EPISODES = 5
+TRAIN_EVAL_EPISODES = 20
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
