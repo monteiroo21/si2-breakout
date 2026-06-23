@@ -33,6 +33,16 @@ def build_observation(state: Dict[str, Any]) -> np.ndarray:
     return np.clip(obs, 0.0, 1.0).astype(np.float32)
 
 
+def _reflect_into(x: float, lo: float, hi: float) -> float:
+    span = hi - lo
+    if span <= 0.0:
+        return lo
+    y = (x - lo) % (2.0 * span)
+    if y > span:
+        y = 2.0 * span - y
+    return lo + y
+
+
 class BreakoutEnv(gym.Env):
     def __init__(
         self,
@@ -42,6 +52,8 @@ class BreakoutEnv(gym.Env):
         clear_reward: float = 20.0,
         death_penalty: float = 20.0,
         align_coef: float = 0.02,
+        shape_coef: float = 0.5,
+        gamma: float = 0.99,
         step_reward: float = 0.0,
     ) -> None:
         super().__init__()
@@ -51,6 +63,8 @@ class BreakoutEnv(gym.Env):
         self.clear_reward = clear_reward
         self.death_penalty = death_penalty
         self.align_coef = align_coef
+        self.shape_coef = shape_coef
+        self.gamma = gamma
         self.step_reward = step_reward
 
         self.game = Breakout()
@@ -64,6 +78,7 @@ class BreakoutEnv(gym.Env):
         self._prev_lives = self.game.lives
         self._episode_peak_score = 0
         self._episode_clears = 0
+        self._prev_potential = 0.0
 
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict[str, Any]]:
         super().reset(seed=seed)
@@ -78,7 +93,44 @@ class BreakoutEnv(gym.Env):
         state = self.game.get_state()
         self._prev_active = len(state["bricks"])
         self._prev_lives = state["lives"]
+        self._prev_potential = self._potential(state)
         return build_observation(state), {}
+
+    def _potential(self, state: Dict[str, Any]) -> float:
+        if state["game_over"]:
+            return 0.0
+        vy = self.game.ball_vy
+        if vy <= 0.0:                       # ball going up -> nothing to aim at yet
+            return 0.0
+        t = (state["paddle_y"] - state["ball_y"]) / vy   # time to reach paddle row
+        if t <= 0.0:
+            return 0.0
+        x_land = state["ball_x"] + self.game.ball_vx * t  # straight-line landing x
+        r = state["ball_radius"]
+        x_land = _reflect_into(x_land, r, state["width"] - r)  # account for wall bounces
+        center = state["paddle_x"] + state["paddle_width"] / 2.0
+        dist = abs(x_land - center) / state["width"]          # 0 = perfect, 1 = worst
+        return -dist
+
+    def calculate_reward_v2(self, state: Dict[str, Any]) -> float:
+        active = len(state["bricks"])
+        lives = state["lives"]
+
+        reward = self.step_reward
+
+        delta = self._prev_active - active
+        if delta > 0:
+            reward += self.brick_reward * delta
+        if active == 0 and self._prev_active > 0:
+            reward += self.clear_reward
+        if lives < self._prev_lives:
+            reward -= self.death_penalty
+
+        phi = self._potential(state)
+        reward += self.shape_coef * (self.gamma * phi - self._prev_potential)
+        self._prev_potential = phi
+
+        return reward
     
     def calculate_reward(self, state: Dict[str, Any]) -> float:
         active = len(state["bricks"])

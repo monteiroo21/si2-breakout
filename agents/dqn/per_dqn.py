@@ -147,11 +147,12 @@ def evaluate_model(net, n_stack, n_episodes, seed=0, max_steps=100_000):
             with torch.no_grad():
                 t = torch.as_tensor(stacked, dtype=torch.float32, device=device).unsqueeze(0)
                 action = int(net(t).argmax(dim=1).item())
-            obs, _, terminated, truncated, info = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(action)
             stacked = stack_obs(frames, obs)
             cur_peak = max(cur_peak, info["score"])
             cur_steps += 1
             done = terminated or truncated
+            # print(f"eval episode {ep+1}/{n_episodes}  step {cur_steps}  reward {reward:.1f}  ")
         peaks.append(cur_peak)
         clears.append(info.get("boards_cleared", 0))
         survivals.append(cur_steps)
