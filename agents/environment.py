@@ -52,9 +52,9 @@ class BreakoutEnv(gym.Env):
         clear_reward: float = 20.0,
         death_penalty: float = 20.0,
         align_coef: float = 0.02,
+        aim_coef: float = 0.02,
         shape_coef: float = 0.5,
         gamma: float = 0.99,
-        step_reward: float = 0.0,
     ) -> None:
         super().__init__()
         self.dt = dt
@@ -63,9 +63,9 @@ class BreakoutEnv(gym.Env):
         self.clear_reward = clear_reward
         self.death_penalty = death_penalty
         self.align_coef = align_coef
+        self.aim_coef = aim_coef
         self.shape_coef = shape_coef
         self.gamma = gamma
-        self.step_reward = step_reward
 
         self.game = Breakout()
         self.observation_space = spaces.Box(
@@ -78,7 +78,6 @@ class BreakoutEnv(gym.Env):
         self._prev_lives = self.game.lives
         self._episode_peak_score = 0
         self._episode_clears = 0
-        self._prev_potential = 0.0
 
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict[str, Any]]:
         super().reset(seed=seed)
@@ -93,50 +92,11 @@ class BreakoutEnv(gym.Env):
         state = self.game.get_state()
         self._prev_active = len(state["bricks"])
         self._prev_lives = state["lives"]
-        self._prev_potential = self._potential(state)
         return build_observation(state), {}
-
-    def _potential(self, state: Dict[str, Any]) -> float:
-        if state["game_over"]:
-            return 0.0
-        vy = self.game.ball_vy
-        if vy <= 0.0:                       # ball going up -> nothing to aim at yet
-            return 0.0
-        t = (state["paddle_y"] - state["ball_y"]) / vy   # time to reach paddle row
-        if t <= 0.0:
-            return 0.0
-        x_land = state["ball_x"] + self.game.ball_vx * t  # straight-line landing x
-        r = state["ball_radius"]
-        x_land = _reflect_into(x_land, r, state["width"] - r)  # account for wall bounces
-        center = state["paddle_x"] + state["paddle_width"] / 2.0
-        dist = abs(x_land - center) / state["width"]          # 0 = perfect, 1 = worst
-        return -dist
-
-    def calculate_reward_v2(self, state: Dict[str, Any]) -> float:
-        active = len(state["bricks"])
-        lives = state["lives"]
-
-        reward = self.step_reward
-
-        delta = self._prev_active - active
-        if delta > 0:
-            reward += self.brick_reward * delta
-        if active == 0 and self._prev_active > 0:
-            reward += self.clear_reward
-        if lives < self._prev_lives:
-            reward -= self.death_penalty
-
-        phi = self._potential(state)
-        reward += self.shape_coef * (self.gamma * phi - self._prev_potential)
-        self._prev_potential = phi
-
-        return reward
     
     def calculate_reward(self, state: Dict[str, Any]) -> float:
         active = len(state["bricks"])
         lives = state["lives"]
-
-        reward = self.step_reward
 
         delta = self._prev_active - active
         if delta > 0:
@@ -152,6 +112,35 @@ class BreakoutEnv(gym.Env):
             paddle_center = state["paddle_x"] + state["paddle_width"] / 2.0
             err = abs(state["ball_x"] - paddle_center) / state["width"]
             reward += self.align_coef * (1.0 - 2.0 * err)
+
+        return reward
+
+    def calculate_reward_v2(self, state: Dict[str, Any]) -> float:
+        active = len(state["bricks"])
+        lives = state["lives"]
+
+        delta = self._prev_active - active
+        if delta > 0:
+            scarcity = NUM_BRICKS / max(self._prev_active, 1)
+            reward += self.brick_reward * delta * scarcity
+
+        if active == 0 and self._prev_active > 0:
+            reward += self.clear_reward
+
+        if lives < self._prev_lives:
+            reward -= self.death_penalty
+
+        if self.aim_coef and self.game.ball_vy > 0.0 and state["bricks"]:
+            bx = state["ball_x"]
+            target = min(
+                state["bricks"],
+                key=lambda b: abs(bx - (b["left"] + b["width"] / 2.0)),
+            )
+            tcx = target["left"] + target["width"] / 2.0
+            want = np.sign(tcx - bx)
+            rel = (bx - state["paddle_x"]) / state["paddle_width"]
+            produced = -1.0 if rel < 1.0 / 3.0 else (1.0 if rel > 2.0 / 3.0 else 0.0)
+            reward += self.aim_coef * want * produced
 
         return reward
 
