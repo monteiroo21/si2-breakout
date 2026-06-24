@@ -50,7 +50,7 @@ def tb_scalar(run_dir, tag="eval/mean_peak"):
 
 
 def collect_variant_peaks(episodes, seed):
-    from agents.dqn.compare import VARIANTS, load_model, run_episodes
+    from scripts.compare import VARIANTS, load_model, run_episodes
 
     peaks_by_variant = OrderedDict()
     for name, path in VARIANTS:
@@ -66,7 +66,7 @@ def collect_variant_peaks(episodes, seed):
 
 
 def collect_baseline_peaks(episodes, seed, n_stack=4):
-    from agents.evaluate import ALGOS, run_episodes
+    from scripts.evaluate import ALGOS, run_episodes
     from agents.train import make_stacked_env
 
     peaks_by_algo = OrderedDict()

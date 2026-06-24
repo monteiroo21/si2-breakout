@@ -69,13 +69,13 @@ uv run python -m agents.dqn.nstep_dqn    --timesteps 1000000 --tag nstep_dqn
 Greedy game-score evaluation over N episodes:
 ```bash
 # SB3 model
-uv run python -m agents.evaluate --algo ppo --model models/ppo_breakout/best_model.zip --episodes 30
+uv run python -m scripts.evaluate --algo ppo --model models/ppo_breakout/best_model.zip --episodes 30
 
 # a single from-scratch variant
 uv run python -m agents.dqn.per_dqn --eval-only --model models/per_dqn/best_model.pt --episodes 30
 
 # all 5 variants side by side (identical seeds)
-uv run python -m agents.dqn.compare --episodes 30
+uv run python -m scripts.compare --episodes 30
 ```
 
 ### 5. Monitor training (TensorBoard)
@@ -89,7 +89,7 @@ Key scalars logged per run: `eval/mean_peak`, `game/peak_score`,
 ### 6. Reproduce the report figures
 
 ```bash
-uv run python -m agents.dqn.plots
+uv run python -m scripts.plots
 ```
 Writes the figures in [figures/](figures/) (the boxplots run the greedy eval
 in-process, so the variant checkpoints must exist).
@@ -110,7 +110,6 @@ si2-breakout/
 │   ├── manual_agent.py         #   Keyboard-controlled agent (terminal HUD)
 │   ├── environment.py          #   Gymnasium wrapper: observation, action, reward(s)
 │   ├── train.py                #   SB3 trainer (DQN/PPO/A2C) + frame-stacking + callbacks
-│   ├── evaluate.py             #   SB3 greedy game-score evaluation
 │   ├── rl_agent.py             #   Deploy an SB3 model against the live server
 │   ├── dqn_play_agent.py       #   Deploy a from-scratch (.pt) model against the live server
 │   └── dqn/                    #   From-scratch DQN variants (each a standalone trainer)
@@ -118,10 +117,12 @@ si2-breakout/
 │       ├── double_dqn.py
 │       ├── dueling_dqn.py
 │       ├── per_dqn.py          #     Prioritized Experience Replay
-│       ├── nstep_dqn.py        #     n-step returns
-│       ├── compare.py          #     Side-by-side greedy comparison of all variants
-│       └── plots.py            #     Build the report figures
+│       └── nstep_dqn.py        #     n-step returns
 │
+├── scripts/                    # Reporting / evaluation entry points
+│   ├── evaluate.py             #   SB3 greedy game-score evaluation
+│   ├── compare.py              #   Side-by-side greedy comparison of all variants
+│   └── plots.py                #   Build the report figures (reuses compare/evaluate)
 ├── models/                     # Saved checkpoints (one folder per --tag)
 │   ├── <tag>/best_model.pt     #   from-scratch: best + final_model.pt
 │   └── <run>_breakout/best_model.zip   # SB3: best + <run>_breakout_final.zip
