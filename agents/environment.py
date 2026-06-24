@@ -33,16 +33,6 @@ def build_observation(state: Dict[str, Any]) -> np.ndarray:
     return np.clip(obs, 0.0, 1.0).astype(np.float32)
 
 
-def _reflect_into(x: float, lo: float, hi: float) -> float:
-    span = hi - lo
-    if span <= 0.0:
-        return lo
-    y = (x - lo) % (2.0 * span)
-    if y > span:
-        y = 2.0 * span - y
-    return lo + y
-
-
 class BreakoutEnv(gym.Env):
     def __init__(
         self,
@@ -98,6 +88,8 @@ class BreakoutEnv(gym.Env):
         active = len(state["bricks"])
         lives = state["lives"]
 
+        reward = 0.0
+
         delta = self._prev_active - active
         if delta > 0:
             reward += self.brick_reward * delta
@@ -118,6 +110,8 @@ class BreakoutEnv(gym.Env):
     def calculate_reward_v2(self, state: Dict[str, Any]) -> float:
         active = len(state["bricks"])
         lives = state["lives"]
+        
+        reward = 0.0
 
         delta = self._prev_active - active
         if delta > 0:
