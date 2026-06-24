@@ -218,12 +218,68 @@ saved as `best_model`.
 <!-- =================================================================== -->
 ## Baseline Algorithms (Stable-Baselines3)
 
-> ⏳ _To write — DQN / PPO / A2C: architectures (MLP [256,256]), key hyperparameters, baseline results. Reference numbers: SB3 DQN median ~218, SB3 PPO median ~288._
+Three standard algorithms were trained as
+**baselines**. Their purpose is to check how different algorithmic choices behave
+on this task, comparing distinct families of RL methods and to give the
+from-scratch work a reference to be measured against. For these we relied on
+**[Stable-Baselines3](https://stable-baselines3.readthedocs.io/) (SB3)**, which
+provides well-tested reference implementations of each algorithm. This lets us
+abstract away the algorithm internals and focus on the environment, the reward,
+and the evaluation, while still covering three different paradigms:
+
+- **DQN** — off-policy, value-based (replay buffer + target network);
+- **PPO** — on-policy policy gradient with a clipped objective;
+- **A2C** — on-policy advantage actor-critic.
+
+All three share the same `MlpPolicy` (two hidden layers of 256, ReLU), the same
+4-frame-stacked observation, and the same environment and reward as the rest of
+the project. DQN reuses the shared configuration from
+[Training & Evaluation Setup](#training--evaluation-setup); the two on-policy
+baselines use:
+
+| Hyperparameter | PPO | A2C |
+|---|---|---|
+| Learning rate | 3 × 10⁻⁴ | 7 × 10⁻⁴ |
+| Rollout length (`n_steps`) | 2048 | 5 |
+| Batch size | 64 | — |
+| GAE λ | 0.95 | — |
+| Entropy coefficient | 0.0 | 0.01 |
+
+**Results.** The boxplot below summarises 30 greedy episodes for each baseline
+(peak game score per episode).
+
+![SB3 baselines — peak-score distribution (30 greedy episodes)](figures/baselines_boxplots.png)
+
+**RecurrentPPO (explored, dropped).** We also briefly looked into **RecurrentPPO**
+(an LSTM-based policy from `sb3-contrib`), motivated by the idea that recurrence
+could replace frame-stacking by carrying the ball's motion in the hidden state. In
+practice it trained poorly and scored far below the feed-forward baselines, so it
+was not pursued further.
 
 <!-- =================================================================== -->
 ## From-scratch DQN Variants
 
-> ⏳ _To write — what each variant changes and why (Double: decoupled action selection/evaluation; Dueling: V+A streams; PER: prioritized replay + IS weights; n-step: multi-step returns), network architectures, and the comparison → PER wins._
+Beyond the SB3 baselines, we implemented five DQN variants **from scratch** in
+PyTorch ([agents/dqn/](agents/dqn/)). They all share the **same Q-network and the
+same training loop** — only one targeted component changes between them — so the
+comparison isolates the effect of each idea.
+
+**The network** is a small MLP: the stacked observation (`4 × 19 = 76` inputs)
+feeds two hidden layers of 256 units (ReLU) that output one Q-value per action.
+Training uses ε-greedy exploration, a replay buffer, and a periodically-synced
+target network (hyperparameters in
+[Training & Evaluation Setup](#training--evaluation-setup)).
+
+Each variant changes a single component:
+
+- **Vanilla** — plain DQN with a 1-step TD target and a target network (baseline).
+- **Double** — selects the next action with the online network but evaluates it
+  with the target network, reducing Q-value over-estimation.
+- **Dueling** — splits the head into a state-value `V(s)` and an advantage
+  `A(s,a)` stream, recombined as `Q = V + (A − mean A)`.
+- **PER (Prioritized Experience Replay)** — samples transitions in proportion to their TD-error (prioritized
+  replay) instead of uniformly, with importance-sampling weights to correct the bias.
+- **n-step** — bootstraps from `n`-step returns (`n = 3`) instead of a single step.
 
 ![DQN variants — game-score evolution](figures/variants_evolution.png)
 
@@ -241,14 +297,63 @@ _Reference baselines: SB3 DQN median 218 · SB3 PPO median 288._
 
 ![Per-episode peak-score distribution by variant](figures/boxplots.png)
 
+**PER is the clear winner.** It reaches a median peak score of **1983** — roughly
+**10× every other variant** (medians 139–278) and well above the SB3 baselines —
+and clears ~17.6 boards per episode. It is also the **most consistent**: it cleared
+at least one full board in **all 30 episodes** (100%, versus 43–73% for the
+others), and even its worst episode (634) beats the others' *typical* scores.
+Relative to its own level its spread is the smallest of the five (std/mean ≈ 0.6,
+versus ≈ 0.8–0.95), so PER did not just raise the ceiling — it removed the frequent
+near-zero episodes that drag the other variants down. In the boxplot this shows as
+a distribution sitting far higher whose lower whisker never drops toward zero,
+unlike the long low tails of the other variants.
+
 <!-- =================================================================== -->
 ## Reward Design
 
-> ⏳ _To write — base reward rationale; the dense-vs-sparse / reward-hacking discussion; the potential-based shaping (PBRS) on the ball's predicted landing point; and the A/B on PER (v1 alignment vs v3 PBRS). Conclusion: shaping did not beat the simpler reward (within single-seed noise)._
+We experimented with **two reward functions**, both defined in
+[agents/environment.py](agents/environment.py) (`calculate_reward` and
+`calculate_reward_v2`). They share the same backbone and differ only in one dense
+shaping term.
+
+**Shared part — the task reward.** Both encode the actual objective straight from
+game events:
+
+- **+1** for each brick broken,
+- **+20** for clearing a full board,
+- **−20** for losing a life.
+
+This is the sparse signal that defines good play: break bricks, clear boards, stay
+alive.
+
+**Where they differ — the dense shaping.** On top of that backbone, each adds a
+small per-step term to guide the paddle *between* those sparse events:
+
+- **First reward — alignment.** A bonus on every descending step for keeping the
+  paddle aligned with the ball's *current* horizontal position. In practice this
+  turned out **too safe**: the agent is rewarded simply for sitting under the ball
+  — a defensive "keep it in play" behaviour it can accumulate without ever pressing
+  to attack and break bricks, so the dense bonus tends to overshadow the real
+  scoring goal.
+- **Second reward — potential-based shaping (PBRS).** Replaces the alignment bonus
+  with a *potential-based* term over the ball's **predicted landing point**
+  (`F = γ·Φ(s') − Φ(s)`, where `Φ` is the negative distance from the paddle to
+  where the ball will land). Being potential-based, it telescopes to roughly zero
+  over a trajectory, so it cannot be farmed and never overshadows the task reward —
+  the intent being to stop paying the agent for passive tracking and let breaking
+  bricks drive its behaviour instead.
+
+**Result.** Because the reward is an environment-level change, we tested it on a
+single algorithm — **PER**, the best model from the variant comparison. The second
+reward **did not yield better results**: as the A/B figure below shows (labelled
+`v1` for alignment and `v3` for PBRS), the two learning curves track each other
+closely, and the simpler alignment reward still produced the strongest agent. We
+therefore kept the first reward as the default.
 
 ![PER reward A/B — v1 alignment vs v3 PBRS](figures/reward_function.png)
 
-<!-- =================================================================== -->
-## Results & Discussion
+## References
 
-> ⏳ _To write — headline PER agent (median ~2000, 100% board-clear, ~35k survival steps); the variant table + figures above; and the honest caveats: training instability (peak-then-collapse), single-seed comparison, and `best_model` selection capturing the luckiest snapshot._
+- [Gymnasium](https://gymnasium.farama.org/): the standard RL environment used to wrap the game as an MDP.
+- [Stable-Baselines3](https://stable-baselines3.readthedocs.io/en/master/index.html): reference implementations of the DQN / PPO / A2C baselines.
+- [RL-Adventure (higgsfield)](https://github.com/higgsfield/RL-Adventure): reference implementations of the DQN variants (Double, Dueling, Prioritized Experience Replay, n-step) that guided the implementation.

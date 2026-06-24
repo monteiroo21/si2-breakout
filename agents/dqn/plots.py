@@ -12,6 +12,11 @@ FIG_DIR = "figures"
 TRAIN_LOG = "training_run.txt"
 TB_DIR = "runs"
 VARIANT_TAGS = ["vanilla_dqn", "double_dqn", "dueling_dqn", "per_dqn", "nstep_dqn"]
+BASELINES = [
+    ("dqn", "models/dqn_breakout/best_model.zip"),
+    ("ppo", "models/ppo_breakout/best_model.zip"),
+    ("a2c", "models/a2c_breakout/best_model.zip"),
+]
 EVAL_LINE = re.compile(
     r"\[(\w+)\] step (\d+): eval mean_peak=([\d.]+) median=(\d+) max=(\d+)"
 )
@@ -60,6 +65,23 @@ def collect_variant_peaks(episodes, seed):
     return peaks_by_variant
 
 
+def collect_baseline_peaks(episodes, seed, n_stack=4):
+    from agents.evaluate import ALGOS, run_episodes
+    from agents.train import make_stacked_env
+
+    peaks_by_algo = OrderedDict()
+    for name, path in BASELINES:
+        if not os.path.exists(path):
+            print(f"  {name}: no checkpoint at {path}, skipping")
+            continue
+        venv = make_stacked_env(1, n_stack, seed, {"max_steps": 100_000})
+        model = ALGOS[name].load(path)
+        peaks, _, _ = run_episodes(model, venv, episodes)
+        peaks_by_algo[name] = peaks
+        print(f"  {name}: {episodes} episodes done")
+    return peaks_by_algo
+
+
 def plot_variant_evolution(series, out):
     plt.figure(figsize=(9, 5))
     for tag in VARIANT_TAGS:
@@ -96,15 +118,15 @@ def plot_reward_ab(series, out):
     plt.close()
 
 
-def plot_boxplots(peaks_by_variant, out):
-    names = list(peaks_by_variant)
-    arrs = [peaks_by_variant[n] for n in names]
+def plot_boxplots(peaks_by_name, out, title="Greedy eval — peak-score distribution by variant"):
+    names = list(peaks_by_name)
+    arrs = [peaks_by_name[n] for n in names]
     plt.figure(figsize=(8, 5))
     plt.boxplot(arrs, showmeans=True)
     plt.xticks(range(1, len(names) + 1), names)  # version-safe label setting
     plt.yscale("log")
     plt.ylabel("per-episode peak score (log scale)")
-    plt.title("Greedy eval — peak-score distribution by variant")
+    plt.title(title)
     plt.grid(True, axis="y", which="both", alpha=0.3)
     plt.tight_layout()
     plt.savefig(out, dpi=120)
@@ -129,13 +151,22 @@ def main():
     plot_reward_ab(series, os.path.join(FIG_DIR, "reward_function.png"))
     print(f"wrote {FIG_DIR}/reward_function.png")
 
-    print(f"running greedy eval for boxplots ({args.episodes} eps/variant)...")
+    print(f"running greedy eval for variant boxplots ({args.episodes} eps/variant)...")
     peaks = collect_variant_peaks(args.episodes, args.seed)
     if peaks:
         plot_boxplots(peaks, os.path.join(FIG_DIR, "boxplots.png"))
         print(f"wrote {FIG_DIR}/boxplots.png")
     else:
         print(" skipped: no variant checkpoints found")
+
+    print(f"running greedy eval for baseline boxplots ({args.episodes} eps/algo)...")
+    baseline_peaks = collect_baseline_peaks(args.episodes, args.seed)
+    if baseline_peaks:
+        plot_boxplots(baseline_peaks, os.path.join(FIG_DIR, "baselines_boxplots.png"),
+                      title="Greedy eval — peak-score distribution by baseline algorithm")
+        print(f"wrote {FIG_DIR}/baselines_boxplots.png")
+    else:
+        print(" skipped: no baseline checkpoints found")
 
 
 if __name__ == "__main__":
