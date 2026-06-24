@@ -144,8 +144,8 @@ and hyperparameters are set in [agents/environment.py](agents/environment.py)
 
 The base project ships only the raw game — a physics simulation
 ([server/logic.py](server/logic.py)) that exposes the current game state and
-accepts paddle moves over WebSocket. To train RL agents on it, we wrap that
-simulation in a **Gymnasium environment**, [`BreakoutEnv`](agents/environment.py).
+accepts paddle moves over WebSocket. To train RL agents on it, the simulation is  wrapped
+in a **Gymnasium environment**, [`BreakoutEnv`](agents/environment.py).
 
 The Gym wrapper is where the game becomes a formal **Markov Decision Process
 (MDP)**. Instead of dealing with the simulation directly, the wrapper defines, at
@@ -221,8 +221,8 @@ saved as `best_model`.
 Three standard algorithms were trained as
 **baselines**. Their purpose is to check how different algorithmic choices behave
 on this task, comparing distinct families of RL methods and to give the
-from-scratch work a reference to be measured against. For these we relied on
-**[Stable-Baselines3](https://stable-baselines3.readthedocs.io/) (SB3)**, which
+from-scratch work a reference to be measured against. For these
+**[Stable-Baselines3](https://stable-baselines3.readthedocs.io/) (SB3)** was used, which
 provides well-tested reference implementations of each algorithm. This lets us
 abstract away the algorithm internals and focus on the environment, the reward,
 and the evaluation, while still covering three different paradigms:
@@ -250,8 +250,8 @@ baselines use:
 
 ![SB3 baselines — peak-score distribution (30 greedy episodes)](figures/baselines_boxplots.png)
 
-**RecurrentPPO (explored, dropped).** We also briefly looked into **RecurrentPPO**
-(an LSTM-based policy from `sb3-contrib`), motivated by the idea that recurrence
+**RecurrentPPO (explored, dropped).** **RecurrentPPO**
+(an LSTM-based policy from `sb3-contrib`) was also briefly looked into, motivated by the idea that recurrence
 could replace frame-stacking by carrying the ball's motion in the hidden state. In
 practice it trained poorly and scored far below the feed-forward baselines, so it
 was not pursued further.
@@ -259,10 +259,9 @@ was not pursued further.
 <!-- =================================================================== -->
 ## From-scratch DQN Variants
 
-Beyond the SB3 baselines, we implemented five DQN variants **from scratch** in
+Beyond the SB3 baselines, five DQN variants were implemented **from scratch** in
 PyTorch ([agents/dqn/](agents/dqn/)). They all share the **same Q-network and the
-same training loop** — only one targeted component changes between them — so the
-comparison isolates the effect of each idea.
+same training loop**, so the comparison isolates the effect of each idea.
 
 **The network** is a small MLP: the stacked observation (`4 × 19 = 76` inputs)
 feeds two hidden layers of 256 units (ReLU) that output one Q-value per action.
@@ -297,13 +296,12 @@ _Reference baselines: SB3 DQN median 218 · SB3 PPO median 288._
 
 ![Per-episode peak-score distribution by variant](figures/boxplots.png)
 
-**PER is the clear winner.** It reaches a median peak score of **1983** — roughly
-**10× every other variant** (medians 139–278) and well above the SB3 baselines —
-and clears ~17.6 boards per episode. It is also the **most consistent**: it cleared
-at least one full board in **all 30 episodes** (100%, versus 43–73% for the
+**PER is the clear winner.** It reaches a median peak score of **1983**, roughly
+**10× every other variant**, and clears ~17.6 boards per episode. It is also the 
+**most consistent**: it cleared at least one full board in **all 30 episodes** (100%, versus 43–73% for the
 others), and even its worst episode (634) beats the others' *typical* scores.
 Relative to its own level its spread is the smallest of the five (std/mean ≈ 0.6,
-versus ≈ 0.8–0.95), so PER did not just raise the ceiling — it removed the frequent
+versus ≈ 0.8–0.95), so PER did not just raise the ceiling, it removed the frequent
 near-zero episodes that drag the other variants down. In the boxplot this shows as
 a distribution sitting far higher whose lower whisker never drops toward zero,
 unlike the long low tails of the other variants.
@@ -311,10 +309,10 @@ unlike the long low tails of the other variants.
 <!-- =================================================================== -->
 ## Reward Design
 
-We experimented with **two reward functions**, both defined in
+**Two reward functions** were experimented with, both defined in
 [agents/environment.py](agents/environment.py) (`calculate_reward` and
-`calculate_reward_v2`). They share the same backbone and differ only in one dense
-shaping term.
+`calculate_reward_v2`). They share the same task backbone and differ in how they
+reward breaking bricks and in the dense shaping term each one adds.
 
 **Shared part — the task reward.** Both encode the actual objective straight from
 game events:
@@ -331,26 +329,27 @@ small per-step term to guide the paddle *between* those sparse events:
 
 - **First reward — alignment.** A bonus on every descending step for keeping the
   paddle aligned with the ball's *current* horizontal position. In practice this
-  turned out **too safe**: the agent is rewarded simply for sitting under the ball
-  — a defensive "keep it in play" behaviour it can accumulate without ever pressing
+  turned out **too safe**: the agent is rewarded simply for sitting under the ball:
+  a defensive "keep it in play" behaviour it can accumulate without ever pressing
   to attack and break bricks, so the dense bonus tends to overshadow the real
   scoring goal.
-- **Second reward — potential-based shaping (PBRS).** Replaces the alignment bonus
-  with a *potential-based* term over the ball's **predicted landing point**
-  (`F = γ·Φ(s') − Φ(s)`, where `Φ` is the negative distance from the paddle to
-  where the ball will land). Being potential-based, it telescopes to roughly zero
-  over a trajectory, so it cannot be farmed and never overshadows the task reward —
-  the intent being to stop paying the agent for passive tracking and let breaking
-  bricks drive its behaviour instead.
+- **Second reward — scarcity + aim (offensive).** Tries to make the agent *attack*
+  bricks, with two changes. First, it weights each brick break by **scarcity**
+  (`16 / bricks remaining`), so finishing off the last, hard-to-reach bricks pays
+  far more than the easy opening ones. Second, it replaces the alignment bonus with
+  an **aim** term: it finds the nearest remaining brick and rewards the agent when
+  the ball is set to strike the paddle region (left / middle / right third) whose
+  bounce deflects it *toward* that brick. The intent is to stop paying for passive
+  tracking and instead reward aiming the ball at bricks.
 
-**Result.** Because the reward is an environment-level change, we tested it on a
+**Result.** Because the reward is an environment-level change, it was tested on a
 single algorithm — **PER**, the best model from the variant comparison. The second
-reward **did not yield better results**: as the A/B figure below shows (labelled
-`v1` for alignment and `v3` for PBRS), the two learning curves track each other
-closely, and the simpler alignment reward still produced the strongest agent. We
-therefore kept the first reward as the default.
+reward **did not yield better results**: as the A/B figure below shows (`v1`
+alignment vs `v2` scarcity + aim), the offensive reward trained consistently below
+the original and never approached its peaks, so the simpler alignment reward was
+kept as the default.
 
-![PER reward A/B — v1 alignment vs v3 PBRS](figures/reward_function.png)
+![PER reward A/B — v1 alignment vs v2 scarcity + aim](figures/reward_function.png)
 
 ## References
 

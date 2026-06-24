@@ -104,13 +104,13 @@ def plot_reward_ab(series, out):
     if "per_dqn" in series:
         s, v = series["per_dqn"]
         plt.plot(s, v, marker=".", ms=4, label="PER v1 (alignment reward)")
-    s2, v2 = tb_scalar(os.path.join(TB_DIR, "per_dqn_v3"))
+    s2, v2 = tb_scalar(os.path.join(TB_DIR, "per_dqn_v4"))
     if s2:
-        plt.plot(s2, v2, marker=".", ms=4, label="PER v3 (PBRS landing reward)")
+        plt.plot(s2, v2, marker=".", ms=4, label="PER v2 (scarcity + aim reward)")
     plt.yscale("log")
     plt.xlabel("training step")
     plt.ylabel("eval mean peak score (log scale)")
-    plt.title("PER reward A/B — game-score evolution (v1 alignment vs v3 PBRS)")
+    plt.title("PER reward A/B — game-score evolution (v1 alignment vs v2 scarcity + aim)")
     plt.legend()
     plt.grid(True, which="both", alpha=0.3)
     plt.tight_layout()

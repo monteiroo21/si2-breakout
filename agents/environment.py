@@ -43,8 +43,6 @@ class BreakoutEnv(gym.Env):
         death_penalty: float = 20.0,
         align_coef: float = 0.02,
         aim_coef: float = 0.02,
-        shape_coef: float = 0.5,
-        gamma: float = 0.99,
     ) -> None:
         super().__init__()
         self.dt = dt
@@ -54,8 +52,6 @@ class BreakoutEnv(gym.Env):
         self.death_penalty = death_penalty
         self.align_coef = align_coef
         self.aim_coef = aim_coef
-        self.shape_coef = shape_coef
-        self.gamma = gamma
 
         self.game = Breakout()
         self.observation_space = spaces.Box(
